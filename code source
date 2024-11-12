@@ -1,0 +1,81 @@
+# Import necessary libraries for the analysis
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# Set a random seed for reproducibility of results (ensuring the same results each time the code is run)
+np.random.seed(42)
+
+# Define the number of samples to generate for the synthetic dataset
+n_samples = 3000
+
+# Generate random data simulating various factors that could affect survival
+data = {
+    "SES": np.random.choice([1, 2, 3], n_samples),  # Socio-Economic Status (1 = High, 2 = Medium, 3 = Low)
+    "Age": np.random.randint(5, 80, n_samples),     # Random ages between 5 and 80 years
+    "Gender": np.random.choice([0, 1], n_samples),  # Gender (0 = Male, 1 = Female)
+    "Health": np.random.choice([0, 1, 2], n_samples),  # Health status (0 = Poor, 1 = Average, 2 = Good)
+    "Swimming": np.random.choice([0, 1], n_samples),   # Swimming ability (1 = Knows how to swim, 0 = Does not know)
+    "Location": np.random.choice([0, 1], n_samples),   # Location on the ship (1 = Near exit, 0 = Far from exit)
+}
+
+# Define the target variable 'Survived' based on various factors
+# The survival chance is a combination of SES, Age, Health, Swimming ability, and proximity to the exit
+# The more favorable the conditions, the higher the survival chance
+survival_chance = (
+    0.4 * data["SES"] +  # SES has a weight of 0.4, with high SES having a better chance of survival
+    0.03 * (80 - data["Age"]) +  # Age is inversely related to survival (younger people have a higher survival chance)
+    0.3 * data["Health"] +  # Health has a weight of 0.3 (Good health = higher survival chance)
+    0.2 * data["Swimming"] +  # Swimming ability has a weight of 0.2 (knowing how to swim is a positive factor)
+    0.1 * data["Location"]  # Proximity to the exit has a smaller weight (near the exit = higher chance of survival)
+)
+
+# Assign the 'Survived' column based on the survival chance, with a random probability to simulate real-world randomness
+# If the survival chance is higher than a random number, the person is considered to have survived
+data["Survived"] = (np.random.rand(n_samples) < (survival_chance / survival_chance.max())).astype(int)
+
+# Convert the generated data into a pandas DataFrame for easier manipulation
+df = pd.DataFrame(data)
+
+# Define the feature variables (X) and the target variable (y)
+# The target variable 'Survived' is what we're trying to predict, and the rest are the features
+X = df.drop(columns="Survived")  # All columns except 'Survived' are features
+y = df["Survived"]  # The target variable is 'Survived'
+
+# Split the dataset into training and testing sets
+# 80% of the data is used for training and 20% for testing
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the 'Age' feature (since it is continuous) using StandardScaler
+# This step normalizes the feature so that it has a mean of 0 and a standard deviation of 1
+scaler = StandardScaler()
+X_train["Age"] = scaler.fit_transform(X_train[["Age"]])  # Fit and transform on training data
+X_test["Age"] = scaler.transform(X_test[["Age"]])  # Transform test data based on training data's scale
+
+# Initialize the RandomForestClassifier model
+# This is an ensemble learning algorithm that creates multiple decision trees and averages their predictions
+model = RandomForestClassifier(n_estimators=100, random_state=42)  # Using 100 trees
+
+# Train the model using the training data
+model.fit(X_train, y_train)
+
+# Use the trained model to make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Calculate the feature importances using the trained model
+# The feature_importances_ attribute gives us the importance of each feature in making predictions
+feature_importance = model.feature_importances_
+
+# Get the names of the features for labeling the graph
+features = X.columns
+
+# Plot the feature importances as a horizontal bar chart
+plt.figure(figsize=(10, 6))  # Set the size of the figure
+plt.barh(features, feature_importance)  # Horizontal bar chart where features are on the y-axis and importance on the x-axis
+plt.xlabel("Importance")  # Label for the x-axis
+plt.title("Feature Importance in Survival Prediction")  # Title of the chart
+plt.show()  # Display the chart
